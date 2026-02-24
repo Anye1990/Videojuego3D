@@ -142,6 +142,15 @@ namespace StarterAssets
             _hasAnimator = TryGetComponent(out _animator);
             _controller = GetComponent<CharacterController>();
             _input = GetComponent<StarterAssetsInputs>();
+
+            // IMPORTANTE: Desactivar Root Motion para evitar que las animaciones
+            // (como el disparo) muevan físicamente al personaje por debajo del suelo
+            // o lo hagan flotar al saltar rompiendo la gravedad del juego.
+            if (_hasAnimator)
+            {
+                _animator.applyRootMotion = false;
+            }
+
 #if ENABLE_INPUT_SYSTEM 
             _playerInput = GetComponent<PlayerInput>();
 #else
@@ -255,16 +264,21 @@ namespace StarterAssets
             Vector3 inputDirection = new Vector3(_input.move.x, 0.0f, _input.move.y).normalized;
 
             // note: Vector2's != operator uses approximation so is not floating point error prone, and is cheaper than magnitude
-            // if there is a move input rotate player when the player is moving
-            if (_input.move != Vector2.zero && RotateOnMove)
+            // if there is a move input calculate rotation relative to camera
+            if (_input.move != Vector2.zero)
             {
                 _targetRotation = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg +
                                   _mainCamera.transform.eulerAngles.y;
-                float rotation = Mathf.SmoothDampAngle(transform.eulerAngles.y, _targetRotation, ref _rotationVelocity,
-                    RotationSmoothTime);
+                
+                // only rotate player model if RotateOnMove is true
+                if (RotateOnMove)
+                {
+                    float rotation = Mathf.SmoothDampAngle(transform.eulerAngles.y, _targetRotation, ref _rotationVelocity,
+                        RotationSmoothTime);
 
-                // rotate to face input direction relative to camera position
-                transform.rotation = Quaternion.Euler(0.0f, rotation, 0.0f);
+                    // rotate to face input direction relative to camera position
+                    transform.rotation = Quaternion.Euler(0.0f, rotation, 0.0f);
+                }
             }
 
 
