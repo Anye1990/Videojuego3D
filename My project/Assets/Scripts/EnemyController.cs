@@ -11,6 +11,11 @@ public class EnemyController : MonoBehaviour
     public float moveSpeed = 3f;
     public float stoppingDistance = 1.5f;
 
+    [Header("Attack Settings")]
+    public int attackDamage = 15;
+    public float attackCooldown = 2f;
+    private float lastAttackTime = -9999f; // Empezamos en un número muy negativo para que el primer golpe sea instantáneo
+
     private Transform playerTarget;
     private NavMeshAgent navMeshAgent;
     private Animator animator;
@@ -80,7 +85,35 @@ public class EnemyController : MonoBehaviour
             {
                 animator.SetBool("IsWalking", false);
             }
+
+            // Lógica de Ataque
+            if (Time.time >= lastAttackTime + attackCooldown)
+            {
+                AttackPlayer();
+            }
         }
+    }
+
+    private void AttackPlayer()
+    {
+        lastAttackTime = Time.time;
+        
+        // Girar hacia el jugador suavemente mientras ataca
+        Vector3 direction = (playerTarget.position - transform.position).normalized;
+        direction.y = 0;
+        transform.rotation = Quaternion.LookRotation(direction);
+
+        // Disparar la animación de ataque (usar un Trigger)
+        if (animator != null)
+        {
+            animator.SetTrigger("Attack");
+        }
+
+        // Simular que le bajamos vida al jugador (luego conectaremos esto con la vida real del Player)
+        Debug.Log("¡El enemigo atacó al jugador y le hizo " + attackDamage + " de daño!");
+        
+        // Aquí llamaríamos al script del jugador, por ejemplo:
+        // playerTarget.GetComponent<PlayerHealth>()?.TakeDamage(attackDamage);
     }
 
     public void TakeDamage(int damageAmount)
