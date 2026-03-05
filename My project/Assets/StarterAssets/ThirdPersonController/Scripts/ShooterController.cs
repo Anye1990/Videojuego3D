@@ -24,20 +24,29 @@ public class ShooterController : MonoBehaviour
     public Vector3 WeaponRotationOffset = new Vector3(0, 0, 0);
 
     [Header("Settings")]
+    [Tooltip("Damage dealt to enemies per shot")]
+    public int ShootDamage = 25;
+    
+    [Tooltip("Camera zoom level when aiming (lower is closer)")]
+    public float AimFov = 20f;
+    
     [Tooltip("Rotation speed when aiming")]
     public float AimRotationSpeed = 20f;
+    
     [Tooltip("Max distance for the bullet")]
-    public float Range = 100f;
+    public float Range = 1000f;
 
     private ThirdPersonController _thirdPersonController;
     private StarterAssetsInputs _starterAssetsInputs;
     private Animator _animator;
+    private PlayerStats _playerStats;
 
     private void Awake()
     {
         _thirdPersonController = GetComponent<ThirdPersonController>();
         _starterAssetsInputs = GetComponent<StarterAssetsInputs>();
         _animator = GetComponent<Animator>();
+        _playerStats = GetComponent<PlayerStats>();
 
         // Hacer que el cambio de cámara (Zoom) sea más rápido
         if (Camera.main != null && Camera.main.TryGetComponent(out CinemachineBrain brain))
@@ -73,7 +82,11 @@ public class ShooterController : MonoBehaviour
 
         if (isAiming)
         {
-            if(AimCamera) AimCamera.gameObject.SetActive(true);
+            if(AimCamera) 
+            {
+                AimCamera.gameObject.SetActive(true);
+                AimCamera.m_Lens.FieldOfView = Mathf.Lerp(AimCamera.m_Lens.FieldOfView, AimFov, Time.deltaTime * 10f);
+            }
             _thirdPersonController.RotateOnMove = false;
 
             // Indicarle al Animator que estamos apuntando para que cambie a la postura de apuntado
@@ -123,7 +136,16 @@ public class ShooterController : MonoBehaviour
 
         if (isShooting && isAiming && SpawnBulletPosition != null)
         {
-            Vector3 aimDir = (mouseWorldPosition - SpawnBulletPosition.position).normalized;
+            // Checar si tenemos munición antes de disparar
+            bool hasAmmo = true;
+            if (_playerStats != null)
+            {
+                hasAmmo = _playerStats.UseAmmo(1);
+            }
+
+            if (hasAmmo)
+            {
+                Vector3 aimDir = (mouseWorldPosition - SpawnBulletPosition.position).normalized;
             Vector3 hitPoint = SpawnBulletPosition.position + aimDir * Range;
             
             // Visual Debug
@@ -139,7 +161,7 @@ public class ShooterController : MonoBehaviour
                  
                  if (enemy != null)
                  {
-                     enemy.TakeDamage(25); // Cantidad de daño por disparo
+                     enemy.TakeDamage(ShootDamage); // Aplicamos el daño configurable de nuestra arma
                  }
                  else if (hit.collider.gameObject.name.ToLower().Contains("pet_rock") || hit.collider.CompareTag("Enemy"))
                  {
@@ -164,6 +186,7 @@ public class ShooterController : MonoBehaviour
             }
         }
     }
+    }
 
     private void CreateVisualRay(Vector3 start, Vector3 end)
     {
@@ -172,14 +195,24 @@ public class ShooterController : MonoBehaviour
         line.positionCount = 2;
         line.SetPosition(0, start);
         line.SetPosition(1, end);
-        line.startWidth = 0.02f;
-        line.endWidth = 0.02f;
         
-        Material lineMaterial = new Material(Shader.Find("Sprites/Default"));
-        lineMaterial.color = Color.yellow;
-        line.material = lineMaterial;
+        // Hacer la línea más gruesa para que se pueda ver de lejos
+        line.startWidth = 0.08f;
+        line.endWidth = 0.08f;
         
-        Destroy(lineObj, 0.05f); // Destruir la línea rápidamente para dar efecto de destello de disparo
+        // Intentar usar un material brillante genérico, o uno predeterminado si el proyecto los borró
+        Shader unlit = Shader.Find("Unlit/Color");
+        if (unlit == null) unlit = Shader.Find("Sprites/Default");
+        
+        if (unlit != null)
+        {
+            Material lineMaterial = new Material(unlit);
+            lineMaterial.color = Color.yellow;
+            line.material = lineMaterial;
+        }
+        
+        // Aumentar la duración en pantalla un poco más para que el ojo humano lo perciba bien
+        Destroy(lineObj, 0.15f); 
     }
 
     private void LateUpdate()

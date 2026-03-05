@@ -45,20 +45,46 @@ public class EnemyController : MonoBehaviour
 
     private void Update()
     {
-        if (playerTarget == null) return;
+        if (playerTarget == null)
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+            {
+                playerTarget = player.transform;
+            }
+            else
+            {
+                // Si no hay jugador, detener animación de caminar
+                if (animator != null) animator.SetBool("IsWalking", false);
+                return;
+            }
+        }
 
         float distanceToPlayer = Vector3.Distance(transform.position, playerTarget.position);
 
         if (distanceToPlayer > stoppingDistance)
         {
-            if (navMeshAgent != null && navMeshAgent.isActiveAndEnabled)
+            if (navMeshAgent != null && navMeshAgent.isActiveAndEnabled && navMeshAgent.isOnNavMesh)
             {
                 // Movimiento usando NavMeshAgent
+                navMeshAgent.isStopped = false;
                 navMeshAgent.SetDestination(playerTarget.position);
+
+                // Forzar rotación hacia el jugador incluso si el NavMesh patina
+                Vector3 directionToPlayer = (playerTarget.position - transform.position).normalized;
+                directionToPlayer.y = 0;
+                if (directionToPlayer != Vector3.zero)
+                {
+                    Quaternion lookRotation = Quaternion.LookRotation(directionToPlayer);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * 5f);
+                }
             }
             else
             {
-                // Movimiento manual básico si no hay NavMesh
+                // Si tiene el componente pero no hay "NavMesh" calculado en el nivel, usar movimiento manual
+                if (navMeshAgent != null) navMeshAgent.enabled = false; 
+
+                // Movimiento manual básico
                 Vector3 direction = (playerTarget.position - transform.position).normalized;
                 // Ignorar el eje Y para no rotar hacia arriba/abajo
                 direction.y = 0; 
@@ -69,6 +95,7 @@ public class EnemyController : MonoBehaviour
                     transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * 5f);
                 }
                 
+                // Mover al enemigo hacia adelante de forma manual sin físicas complejas
                 transform.position += transform.forward * moveSpeed * Time.deltaTime;
             }
 
@@ -80,10 +107,26 @@ public class EnemyController : MonoBehaviour
         }
         else
         {
+            if (navMeshAgent != null && navMeshAgent.isActiveAndEnabled && navMeshAgent.isOnNavMesh)
+            {
+                // Frenar al agente
+                navMeshAgent.isStopped = true;
+                navMeshAgent.ResetPath();
+            }
+
             // Está quieto o atacando
             if (animator != null)
             {
                 animator.SetBool("IsWalking", false);
+            }
+
+            // Rotar para mirar al jugador al atacar
+            Vector3 direction = (playerTarget.position - transform.position).normalized;
+            direction.y = 0;
+            if (direction != Vector3.zero)
+            {
+                Quaternion lookRotation = Quaternion.LookRotation(direction);
+                transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * 5f);
             }
 
             // Lógica de Ataque
@@ -98,11 +141,6 @@ public class EnemyController : MonoBehaviour
     {
         lastAttackTime = Time.time;
         
-        // Girar hacia el jugador suavemente mientras ataca
-        Vector3 direction = (playerTarget.position - transform.position).normalized;
-        direction.y = 0;
-        transform.rotation = Quaternion.LookRotation(direction);
-
         // Disparar la animación de ataque (usar un Trigger)
         if (animator != null)
         {
@@ -112,14 +150,26 @@ public class EnemyController : MonoBehaviour
         // Simular que le bajamos vida al jugador (luego conectaremos esto con la vida real del Player)
         Debug.Log("¡El enemigo atacó al jugador y le hizo " + attackDamage + " de daño!");
         
-        // Aquí llamaríamos al script del jugador, por ejemplo:
-        // playerTarget.GetComponent<PlayerHealth>()?.TakeDamage(attackDamage);
+        PlayerStats stats = playerTarget.GetComponent<PlayerStats>();
+        if (stats != null)
+        {
+            stats.TakeDamage(attackDamage);
+        }
     }
 
     public void TakeDamage(int damageAmount)
     {
+        // Si ya está muerto, no hacer nada más
+        if (currentHealth <= 0) return;
+
         currentHealth -= damageAmount;
         Debug.Log("Enemigo recibió daño: " + damageAmount + ". Salud actual: " + currentHealth);
+
+        // Disparar animación de recibir daño
+        if (animator != null && currentHealth > 0)
+        {
+            animator.SetTrigger("Hit");
+        }
 
         // Puedes añadir aquí efectos visuales o de sonido de recibir daño
 
@@ -132,7 +182,30 @@ public class EnemyController : MonoBehaviour
     private void Die()
     {
         Debug.Log("Enemigo destruido");
-        // Puedes instanciar un efecto de partículas aquí antes de destruir el objeto
-        Destroy(gameObject);
+        if (GameManager.Instance != null && GameManager.Instance.currentState == GameManager.GameState.Playing)
+        {
+            GameManager.Instance.EnemyKilled();
+        }
+        
+        // Disparar animación de muerte
+        if (animator != null)
+        {
+            animator.SetTrigger("Die");
+        }
+
+        // Desactivar movimiento y colisiones para que no atraviese pisos o siga atacando como fantasma
+        if (navMeshAgent != null) navMeshAgent.enabled = false;
+        
+        Collider col = GetComponent<Collider>();
+        if (col != null) col.enabled = false;
+        
+        // Desactivar este script para que deje de perseguir al jugador
+        this.enabled = false;
+
+        // Limpiar animador para detener animaciones raras si estaba caminando
+        if (animator != null) animator.SetBool("IsWalking", false);
+
+        // Destruir después de 3 segundos para que la animación termine de verse
+        Destroy(gameObject, 3f);
     }
 }
