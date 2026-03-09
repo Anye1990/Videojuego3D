@@ -23,6 +23,18 @@ public class ShooterController : MonoBehaviour
     [Tooltip("Rotación extra para corregir el modelo 3D del arma si está mirando hacia atrás o de lado")]
     public Vector3 WeaponRotationOffset = new Vector3(0, 0, 0);
 
+    [Header("Camera Perspective Offsets (Fortnite Style)")]
+    [Tooltip("Desplazamiento de la cámara en estado normal (ej. X = 0.5 a la derecha)")]
+    public Vector3 NormalCameraOffset = new Vector3(0.5f, 0f, 0f);
+    
+    [Tooltip("Desplazamiento de la cámara al apuntar (ej. X = 0.9 a la derecha)")]
+    public Vector3 AimCameraOffset = new Vector3(0.9f, 0f, 0f);
+    
+    [Tooltip("Velocidad de transición del movimiento de cámara")]
+    public float CameraOffsetTransitionSpeed = 10f;
+
+    private Vector3 _originalCameraTargetPosition;
+
     [Header("Settings")]
     [Tooltip("Damage dealt to enemies per shot")]
     public int ShootDamage = 25;
@@ -54,6 +66,14 @@ public class ShooterController : MonoBehaviour
             var blend = brain.m_DefaultBlend;
             blend.m_Time = 0.1f; // Transición de cámara súper rápida de 0.1 segundos
             brain.m_DefaultBlend = blend;
+        }
+    }
+
+    private void Start()
+    {
+        if (_thirdPersonController != null && _thirdPersonController.CinemachineCameraTarget != null)
+        {
+            _originalCameraTargetPosition = _thirdPersonController.CinemachineCameraTarget.transform.localPosition;
         }
     }
 
@@ -121,6 +141,17 @@ public class ShooterController : MonoBehaviour
             {
                 _animator.ResetTrigger("Shoot");
             }
+        }
+
+        // --- Camera Perspectiva Fortnite ---
+        Vector3 targetCameraOffset = isAiming ? AimCameraOffset : NormalCameraOffset;
+        if (_thirdPersonController != null && _thirdPersonController.CinemachineCameraTarget != null)
+        {
+            _thirdPersonController.CinemachineCameraTarget.transform.localPosition = Vector3.Lerp(
+                _thirdPersonController.CinemachineCameraTarget.transform.localPosition,
+                _originalCameraTargetPosition + targetCameraOffset,
+                Time.deltaTime * CameraOffsetTransitionSpeed
+            );
         }
 
         // Forzar al personaje a mantenerse completamente recto y evitar que se siga hundiendo
