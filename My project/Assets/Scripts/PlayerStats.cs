@@ -12,12 +12,12 @@ public class PlayerStats : MonoBehaviour
 
     private void Start()
     {
-        // Try to get max health from UIManager slider if it's already set 
-        // by the CharacterSelector, otherwise use default
         currentHealth = maxHealth;
         currentAmmo = maxAmmo;
 
-        UpdateHUD();
+        // Call UpdateHUD via Invoke slightly later to ensure the GameManager & UIManager 
+        // have properly finished initializing the new UI Panel text elements 
+        Invoke(nameof(UpdateHUD), 0.1f);
     }
 
     public void TakeDamage(int damage)
@@ -33,11 +33,17 @@ public class PlayerStats : MonoBehaviour
         }
     }
 
-    public void Heal(int amount)
+    public bool Heal(int amount)
     {
+        if (currentHealth >= maxHealth)
+        {
+            return false; // Ya tiene la vida al máximo
+        }
+
         currentHealth += amount;
         if (currentHealth > maxHealth) currentHealth = maxHealth;
         UpdateHUD();
+        return true;
     }
 
     public bool UseAmmo(int amount)
@@ -51,11 +57,17 @@ public class PlayerStats : MonoBehaviour
         return false;
     }
 
-    public void AddAmmo(int amount)
+    public bool AddAmmo(int amount)
     {
+        if (currentAmmo >= maxAmmo)
+        {
+            return false; // Ya tiene la munición al máximo
+        }
+
         currentAmmo += amount;
         if (currentAmmo > maxAmmo) currentAmmo = maxAmmo;
         UpdateHUD();
+        return true;
     }
 
     private void UpdateHUD()

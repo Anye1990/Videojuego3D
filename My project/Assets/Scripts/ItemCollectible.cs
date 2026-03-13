@@ -2,19 +2,45 @@ using UnityEngine;
 
 public class ItemCollectible : MonoBehaviour
 {
+    public enum ItemType
+    {
+        GoldBar,
+        Strawberry,
+        AmmoCrate
+    }
+
+    [Header("Item Settings")]
+    public ItemType itemType;
+    public int amount = 20; // Default amount for ammo or health
+
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player"))
         {
-            // Registrar el item en el Game Manager
-            if (GameManager.Instance != null && GameManager.Instance.currentState == GameManager.GameState.Playing)
+            PlayerStats stats = other.GetComponent<PlayerStats>();
+            if (stats == null) return;
+
+            bool wasCollected = false;
+
+            switch (itemType)
             {
-                GameManager.Instance.ItemCollected();
-                Destroy(gameObject);
+                case ItemType.GoldBar:
+                    if (GameManager.Instance != null && GameManager.Instance.currentState == GameManager.GameState.Playing)
+                    {
+                        GameManager.Instance.ItemCollected();
+                        wasCollected = true;
+                    }
+                    break;
+                case ItemType.Strawberry:
+                    wasCollected = stats.Heal(amount);
+                    break;
+                case ItemType.AmmoCrate:
+                    wasCollected = stats.AddAmmo(amount);
+                    break;
             }
-            else
+
+            if (wasCollected)
             {
-                // Fallback (solo destruirlo si no hay GM para no dejar basura)
                 Destroy(gameObject);
             }
         }

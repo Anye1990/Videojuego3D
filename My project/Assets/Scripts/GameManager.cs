@@ -4,6 +4,20 @@ using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
+#if UNITY_EDITOR
+    [UnityEditor.InitializeOnLoadMethod]
+    static void ClearSelectionOnPlay()
+    {
+        UnityEditor.EditorApplication.playModeStateChanged += (state) =>
+        {
+            if (state == UnityEditor.PlayModeStateChange.ExitingEditMode || state == UnityEditor.PlayModeStateChange.EnteredPlayMode)
+            {
+                UnityEditor.Selection.activeObject = null;
+            }
+        };
+    }
+#endif
+
     public static GameManager Instance { get; private set; }
 
     [Header("Game State")]
@@ -90,6 +104,7 @@ public class GameManager : MonoBehaviour
     public void StartGameWithCharacter(GameObject characterPrefab)
     {
         // 1. Destroy any existing players in the scene to avoid duplicates (usando el script de ThirdPersonController en lugar del Tag)
+        // El bug del MissingReferenceException ya se manejó con el UnityEditor.InitializeOnLoadMethod arriba.
         StarterAssets.ThirdPersonController[] existingPlayers = Object.FindObjectsByType<StarterAssets.ThirdPersonController>(FindObjectsSortMode.None);
         foreach (var player in existingPlayers)
         {
@@ -150,12 +165,18 @@ public class GameManager : MonoBehaviour
         totalEnemiesInLevel = enemies.Length;
         enemiesKilled = 0;
 
-        // Find all items in the scene (assuming they have an "Item" tag or type)
-        // For now we can assume itemsToCollectForLevel is defined manually or counted like enemies
+        // Find all items in the scene and just count the GoldBars
         ItemCollectible[] items = Object.FindObjectsByType<ItemCollectible>(FindObjectsSortMode.None);
-        itemsToCollectForLevel = items.Length;
-        itemsCollected = 0;
+        itemsToCollectForLevel = 0;
+        foreach (var item in items)
+        {
+            if (item.itemType == ItemCollectible.ItemType.GoldBar)
+            {
+                itemsToCollectForLevel++;
+            }
+        }
         
+        itemsCollected = 0;
         UIManager.Instance.UpdateItems(0); // initialize HUD text
     }
 
@@ -163,8 +184,9 @@ public class GameManager : MonoBehaviour
     {
         if (currentState != GameState.Playing) return;
 
-        // If all enemies are dead and all items are collected
-        if (enemiesKilled >= totalEnemiesInLevel && itemsCollected >= itemsToCollectForLevel)
+        // Only checking if you collected all gold bars to win the level (ignoring enemies due to spawner)
+        // Ensure there is actually a goal, to prevent auto-winning on empty scenes
+        if (itemsToCollectForLevel > 0 && itemsCollected >= itemsToCollectForLevel)
         {
             // Level is complete!
             UpdateGameState(GameState.LevelComplete);

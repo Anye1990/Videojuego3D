@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: NewCharacterData 1
   m_EditorClassIdentifier: Assembly-CSharp::CharacterData
   characterName: Char2
-  characterPrefab: {fileID: 0}
-  characterIcon: {fileID: 0}
+  characterPrefab: {fileID: 8625015244727858255, guid: ed3be0c0b2ac2794a86976ce14a3587c, type: 3}
+  characterIcon: {fileID: 21300000, guid: 76bee4cfd1877aa1296e511e4d0ec037, type: 3}
   startingHealth: 100

@@ -23,12 +23,9 @@ public class UIManager : MonoBehaviour
     private void Awake()
     {
         // Singleton pattern
-        if (Instance == null)
+        if (Instance == null || Instance == this)
         {
             Instance = this;
-            // No DontDestroyOnLoad here. It's usually better to have UI in each scene 
-            // or put it under a root that doesn't destroy. 
-            // We'll leave it as a per-scene singleton for simplicity right now.
         }
         else
         {
@@ -78,14 +75,14 @@ public class UIManager : MonoBehaviour
     #region HUD Updates
     public void SetupHUD(Sprite charIcon, int maxHealth)
     {
-        if (characterIconImage != null) characterIconImage.sprite = charIcon;
+        if (characterIconImage) characterIconImage.sprite = charIcon;
         if (healthSlider != null)
         {
             healthSlider.maxValue = maxHealth;
             healthSlider.value = maxHealth;
         }
         UpdateItems(0);
-        UpdateAmmo(0, 0); // Temporary 0, depends on implementation
+        // Dejamos que el script PlayerStats del jugador actualice la munición real cuando spawnea
     }
 
     public void UpdateHealth(int currentHealth)
